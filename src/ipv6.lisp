@@ -28,6 +28,11 @@
   (word1 0 :type (unsigned-byte 64) :read-only t)
   (word2 0 :type (unsigned-byte 64) :read-only t))
 
+(defmethod make-load-form ((object ipv6-address) &optional environment)
+  (declare (ignore environment))
+  `(make-ipv6-address-1 ,(ipv6-address-word1 object)
+                        ,(ipv6-address-word2 object)))
+
 (defmethod address= ((object1 ipv6-address) (object2 ipv6-address))
   (and (eql (ipv6-address-word1 object1) (ipv6-address-word1 object2))
        (eql (ipv6-address-word2 object1) (ipv6-address-word2 object2))))

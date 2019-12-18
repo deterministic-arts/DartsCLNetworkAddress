@@ -34,6 +34,10 @@
                                  (dpb n2 (byte 8 8)
                                       n3)))))
 
+(defmethod make-load-form ((object ipv4-address) &optional environment)
+  (declare (ignore environment))
+  `(make-ipv4-address-1 ,(ipv4-address-value object)))
+
 (defun parse-ipv4-address (string &key (start 0) end junk-allowed)
   (labels
       ((bad-value ()
