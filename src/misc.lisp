@@ -72,3 +72,8 @@
   (and (zerop (ipv6-address-word1 object1))
        (< (ipv6-address-word2 object1)
           (ipv4-address-value object2))))
+
+(defmethod print-address :around (address stream &key prefix suffix)
+  (when prefix (princ prefix stream))
+  (multiple-value-prog1 (call-next-method)
+    (when suffix (princ suffix stream))))
