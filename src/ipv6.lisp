@@ -279,3 +279,31 @@
                      (otherwise (bad-value)))))
         (make-ipv6-address-1 word1 word2))))
 
+(defgeneric ipv6-address (object)
+  (:method ((object ipv6-address)) object)
+  (:method ((object string)) (or (parse-ipv6-address object :junk-allowed t) (call-next-method)))
+  (:method ((object t))
+    (error 'simple-type-error
+                :datum object :expected-type 'ipv6-address
+                :format-control "~S is not a supported IPv6 address designator"
+                :format-arguments (list object))))
+
+(defmethod ipv6-address ((object array))
+  (typecase object
+    ((array (unsigned-byte 8) (16))
+     (let ((w1 0) (w2 0))
+         (loop
+            for p upfrom 0 below 8
+            for b downfrom 56 by 8
+            do (setf (ldb (byte 8 b) w1) (aref object p)))
+         (loop
+            for p upfrom 8 below 16
+            for b downfrom 56 by 8
+            do (setf (ldb (byte 8 b) w2) (aref object p)))
+         (make-ipv6-address-1 w1 w2)))
+    (t (call-next-method))))
+
+(defmethod ipv6-address ((object integer))
+  (typecase object
+    ((unsigned-byte 128) (make-ipv6-address-1 (ldb (byte 64 64) value) (ldb (byte 64 0) value)))
+    (t (call-next-method))))

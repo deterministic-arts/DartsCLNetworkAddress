@@ -98,3 +98,22 @@
       (print-unreadable-object (object stream :type t :identity nil)
         (print-address object stream)))
   object)
+
+(defgeneric ipv4-address (object)
+  (:method ((object ipv4-address)) object)
+  (:method ((object string)) (or (parse-ipv4-address object :junk-allowed t) (call-next-method)))
+  (:method ((object t))
+    (error 'simple-type-error
+           :datum object :expected-type 'ipv4-address
+           :format-control "~S is not a supported designator for an IPv4 address"
+           :format-arguments (list object))))
+
+(defmethod ipv4-address ((object integer))
+  (typecase object
+    ((unsigned-byte 32) (make-ipv4-address-1 object))
+    (t (call-next-method))))
+
+(defmethod ipv4-address ((object array))
+  (typecase object
+    ((array (unsigned-byte 8) (4)) (make-ipv4-address-4 (aref object 0) (aref object 1) (aref object 2) (aref object 3)))
+    (t (call-next-method))))
