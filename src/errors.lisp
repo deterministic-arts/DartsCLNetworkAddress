@@ -21,27 +21,18 @@
   THE SOFTWARE.
 |#
 
-(in-package #:common-lisp-user)
-(defpackage #:darts.asdf (:use #:common-lisp #:asdf))
-(in-package #:darts.asdf)
+(in-package #:darts.lib.network-address)
 
-(defsystem #:darts.lib.network-address
-  :name "darts.lib.network-address"
-  :author "Dirk Esser"
-  :version "0.1"
-  :maintainer "Dirk Esser"
-  :licence "MIT"
-  :description "Representations for network addresses and hosts"
-  :long-description ""
-  :depends-on (#:split-sequence)
-  :components
-  ((:module :src
-    :components
-    ((:file "package")
-     (:file "protocol" :depends-on ("package"))
-     (:file "errors" :depends-on ("package"))
-     (:file "ipv4" :depends-on ("protocol" "errors" "package"))
-     (:file "ipv6" :depends-on ("protocol" "errors" "package"))
-     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6"))))))
+(defgeneric address-parse-error-input (object))
+(defgeneric address-parse-error-expected-type (object))
 
-;;; EOF
+(define-condition address-parse-error (parse-error)
+  ((input :initarg :input :reader address-parse-error-input)
+   (expected-type :initarg :expected-type :reader address-parse-error-expected-type))
+  (:report (lambda (object stream)
+             (format stream "could not parse ~S as ~S"
+                     (address-parse-error-input object)
+                     (address-parse-error-expected-type object)))))
+
+
+  

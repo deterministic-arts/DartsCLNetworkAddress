@@ -43,8 +43,9 @@
       ((bad-value ()
          (if junk-allowed
              (return-from parse-ipv4-address nil)
-             (error "~S is not a well-formed IPv4 address string"
-                    string)))
+             (error 'address-parse-error
+                    :input `(,string :start ,start ,@(when end `(:end ,end)))
+                    :expected-type 'ipv4-address)))
        (parse-int (str)
          (let ((num (parse-integer str :radix 10 :junk-allowed t)))
            (if (and num (<= 0 num 255)) num (bad-value)))))
