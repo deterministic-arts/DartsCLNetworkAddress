@@ -19,13 +19,39 @@ their canonical external format, and parse address values.
    when necessary (and possible.) If _value_ is neither an IPv4 address value
    nor can it be coerced, this function signals a `type-error` condition.
    
+   This function always returns an instance of type `ipv4-address` or fails
+   with an appropriate error condition. It never returns more than a single
+   value. Applications may add their own methods to this function provided
+   that they obey these restrictions.
+   
    The following methods are pre-defined by the library
    
    - *Method* `ipv4-address` (_value_ `ipv4-address`) &rarr; _address_
+   
+     Answers _value_ unchanged.
+   
    - *Method* `ipv4-address` (_value_ `string`) &rarr; _address_
+   
+     Answers the result of parsing _value_ via `parse-ipv4-address`. If the
+     value cannot be parsed, signals a condition.
+   
    - *Method* `ipv4-address` (_value_ `array`) &rarr; _address_
+   
+     This method works only if _value_ is an array matching the type
+     specifier `(array (unsigned-byte 8) (4))`. Fails for all other types
+     of arrays.
+   
    - *Method* `ipv4-address` (_value_ `integer`) &rarr; _address_
+   
+     This method works only if _value_ is an integer of type `(unsigned-byte 32)`
+     and it fails for all other values.
+   
    - *Method* `ipv4-address` (_value_ `ipv6-address`) &rarr; _address_
+   
+     This method works only if _value_ is an address which consists only
+     zero limbs with the exception of the last two limbs. The resulting 
+     IPv4 address is constructed by using the value of the last two limbs
+     of the input address.
  
  - *Function* `ipv4-address-p` _value_ &rarr; _boolean_
  
@@ -44,13 +70,37 @@ their canonical external format, and parse address values.
    when necessary (and possible.) If _value_ is neither an IPv6 address value
    nor can it be coerced, this function signals a `type-error` condition.
    
+   This function always returns an instance of type `ipv6-address` or fails
+   with an appropriate error condition. It never returns more than a single
+   value. Applications may add their own methods to this function provided
+   that they obey these restrictions.
+
    The following methods are pre-defined by the library
    
    - *Method* `ipv6-address` (_value_ `ipv6-address`) &rarr; _address_
+   
+     Answers _value_ unchanged.
+   
    - *Method* `ipv6-address` (_value_ `string`) &rarr; _address_
+   
+     Answers the result of parsing _value_ via `parse-ipv6-address`. If the
+     value cannot be parsed, signals a condition.
+   
    - *Method* `ipv6-address` (_value_ `array`) &rarr; _address_
+   
+     This method works only if _array_ is an array matching the type
+     specifier `(array (unsigned-byte 8) (16))`. Fails for all other types
+     of arrays.
+   
    - *Method* `ipv6-address` (_value_ `integer`) &rarr; _address_
+   
+     This method works only if _value_ is an integer of type `(unsigned-byte 128)`
+     and it fails for all other values.
+   
    - *Method* `ipv6-address` (_value_ `ipv4-address`) &rarr; _address_
+   
+     Answers an IPv6 address constructed by embedding the given IPv4 address
+     into the last two limbs (and keeping all other limbs 0.)
 
  - *Function* `ipv6-address-p` _value_ &rarr; _boolean_
  
@@ -58,19 +108,39 @@ their canonical external format, and parse address values.
  
 ## Comparing Addresses And Hashing
 
+This library assumes, that there is a total order defined over all potential
+address values; this is guaranteed for concrete address representations provided 
+by the library itself.
+
+If an application wants to add new address representations, it needs to add
+suitable methods to the functions `address=` and `address<` only. The remaining
+functions are simply derived from those two generic functions. There is a 
+default method on `address=` which yields true if (and only if) both arguments
+are `eql`. The default method on `address<` returns false for all input values.
+When adding new address types make sure, that they can be consistently compared
+against `ipv4-address` and `ipv6-address` instances, so that we can maintain 
+the total order property of addresses.
+
  - *Generic Function* `address=` _value1_ _value2_ &rarr; _boolean_
+ 
+   Answers true, if the given addresses are equal.
  
  - *Generic Function* `address<` _value1_ _value2_ &rarr; _boolean_
  
- - *Function* `address<=` _value1_ _value2_ &rarr; _boolean_
- 
- - *Function* `address>=` _value1_ _value2_ &rarr; _boolean_
- 
- - *Function* `address/=` _value1_ _value2_ &rarr; _boolean_
+   Answers true, if address _value1_ is considered to be strictly "less than"
+   the one supplied as _value2_.
  
  - *Function* `address>` _value1_ _value2_ &rarr; _boolean_
+ - *Function* `address<=` _value1_ _value2_ &rarr; _boolean_
+ - *Function* `address>=` _value1_ _value2_ &rarr; _boolean_
+ - *Function* `address/=` _value1_ _value2_ &rarr; _boolean_
  
  - *Generic Function* `address-hash` _address_ &rarr; _integer_
+ 
+   Computes a hash value for the given address. This function is intended 
+   to be used with custom hash table implementations (such as `darts.lib.hastrie`)
+   and is useful in Lisps that support custom hash functions in their hash table 
+   implementations. Use `address=` as the equivalence test.
  
 ## Printing And Parsing
 
@@ -85,5 +155,3 @@ their canonical external format, and parse address values.
 ## Other Operations
 
  - *Generic Function* `address-bytes` _value_ &rarr; _array_
- 
- 
