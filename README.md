@@ -105,7 +105,50 @@ their canonical external format, and parse address values.
  - *Function* `ipv6-address-p` _value_ &rarr; _boolean_
  
    Answers true, if _value_ is an instance of class `ipv6-address`.
- 
+   
+- *Type* `host-name-string`
+
+  A subtype of `string` that includes only valid host names. Instances of
+  this type have a maximum length of 253 characters, are composed only of
+  letters, digits, hyphens, and periods, and must obey certain additional
+  syntactic restrictions. Basically, they must match the regular expression
+  `[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.?`
+  
+- *Function* `host-name-string-p` _value_ &rarr; _boolean_
+
+  Tests, whether its argument is a syntactically well-formed host name 
+  string.
+  
+- *Generic Function* `host-name-string` _value_ &rarr; _result_
+  
+  Ensures, that _value_ is an instance of type `host-name-string` coercing it
+  when necessary (and possible.) If _value_ is neither a host name string nor 
+  can it be coerced, this function signals a `type-error` condition.
+   
+  This function always returns an string or fails with an appropriate error 
+  condition. It never returns more than a single value. Applications may add 
+  their own methods to this function provided that they obey these restrictions.
+  The pre-defined methods canonicalize their result to all lower-case.
+  
+  Pre-defined methods are:
+  
+  - *Method* `host-name-string` (_value_ `string`)
+  
+    Checks the given string for host-name-ness and returns an all-lower-case
+    copy if the test succeeds.
+  
+  - *Method* `host-name-string` (_value_ `symbol`)
+  
+    Uses the `symbol-name` of _value_, and checks it for host-name-ness.
+  
+  - *Method* `host-name-string` (_value_ `character`)
+  
+    Treats _value_ as string of one character, and checks it for host-name-ness.
+
+  - *Method* `host-name-string` (_value `t`)
+
+    Signals a condition of type `type-error`.
+
 ## Comparing Addresses And Hashing
 
 This library assumes, that there is a total order defined over all potential
@@ -143,6 +186,8 @@ the total order property of addresses.
    implementations. Use `address=` as the equivalence test.
  
 ## Printing And Parsing
+
+ - *Condition* `address-parse-error`
 
  - *Generic Function* `print-address` _value_ _stream_ `&key` &rarr; _undefined_
  
