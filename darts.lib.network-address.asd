@@ -42,6 +42,7 @@
      (:file "errors" :depends-on ("package"))
      (:file "ipv4" :depends-on ("protocol" "errors" "package"))
      (:file "ipv6" :depends-on ("protocol" "errors" "package"))
-     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6"))))))
+     (:file "host-name" :depends-on ("protocol" "errors" "package"))
+     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6" "host-name"))))))
 
 ;;; EOF
