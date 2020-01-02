@@ -33,25 +33,25 @@
   `(make-ipv6-address-1 ,(ipv6-address-word1 object)
                         ,(ipv6-address-word2 object)))
 
-(defmethod address= ((object1 ipv6-address) (object2 ipv6-address))
+(defmethod address-equal ((object1 ipv6-address) (object2 ipv6-address))
   (and (eql (ipv6-address-word1 object1) (ipv6-address-word1 object2))
        (eql (ipv6-address-word2 object1) (ipv6-address-word2 object2))))
 
 (defmethod address-hash ((object ipv6-address))
   (sxhash (logxor (ipv6-address-word1 object) (ipv6-address-word2 object))))
 
-(defmethod address< ((object1 ipv6-address) (object2 ipv6-address))
+(defmethod address-compare ((object1 ipv6-address) (object2 ipv6-address))
   (let ((h1 (ipv6-address-word1 object1))
         (h2 (ipv6-address-word1 object2)))
     (cond
-      ((< h1 h2) t)
-      ((> h1 h2) nil)
-      (t (< (ipv6-address-word2 object1)
-            (ipv6-address-word2 object2))))))
-
-(defmethod address-type ((object ipv6-address))
-  (declare (ignore object))
-  :ipv6)
+      ((< h1 h2) -1)
+      ((> h1 h2) 1)
+      (t (let ((l1 (ipv6-address-word2 object1))
+               (l2 (ipv6-address-word2 object2)))
+           (cond
+             ((< l1 l2) -1)
+             ((> l1 l2) 1)
+             (t 0)))))))
 
 (defmethod address-bytes ((object ipv6-address))
   (let ((w1 (ipv6-address-word1 object))

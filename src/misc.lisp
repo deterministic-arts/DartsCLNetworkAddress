@@ -31,38 +31,3 @@
     (ipv4-embedded-in-ipv6 (make-ipv4-address-1 (ipv6-address-word2 object)))
     (t (call-next-method))))
 
-(defmethod address< ((object1 ipv4-address) (object2 ipv6-address))
-  (or (not (zerop (ipv6-address-word1 object2)))
-      ;; This is subtle... We want addresses to have a total order; in
-      ;; particular, we want the "usual" property, that for any two addresses
-      ;; A and B, exactly one of
-      ;;
-      ;;   A < B, A = B, A > B
-      ;;
-      ;; since only then is it meaningful to derive <=, >=, etc. from <.
-      ;; But we also want ipv4 != ipv6, since even though numerically equal, those
-      ;; addresses are of different type, and we do not want them to compare
-      ;; as equal.
-      ;;
-      ;; So here, the definition of < must follow the lead. We define (arbitrarily)
-      ;; that IPv4 < IPv6 (if their numeric values are equal.) So, what we
-      ;; actually test is:
-      ;;
-      ;; A < B    <==>   num(A) < num(B) or num(A) = num(B) and prio(A) < prio(B)
-      ;;
-      ;; with prio(X) = 0 if X is an IPv4, 1 if X is an IPv6
-      ;;
-      ;; Taking into account, that we know already that A is an IPv4 and
-      ;; B is an IPv6, we can shorten that into a single test (i.e., using
-      ;; <= here instead of <)
-      (<= (ipv4-address-value object1) (ipv6-address-word2 object2))))
-
-(defmethod address< ((object1 ipv6-address) (object2 ipv4-address))
-  (and (zerop (ipv6-address-word1 object1))
-       (< (ipv6-address-word2 object1)
-          (ipv4-address-value object2))))
-
-(defmethod print-address :around (address stream &key prefix suffix)
-  (when prefix (princ prefix stream))
-  (multiple-value-prog1 (call-next-method)
-    (when suffix (princ suffix stream))))

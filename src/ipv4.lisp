@@ -69,20 +69,14 @@
     (setf (aref array 3) (ldb (byte 8 0) value))
     array))
 
-(defmethod address-type ((object ipv4-address))
-  (declare (ignore object))
-  :ipv4)
-
-(defmethod address= ((object1 ipv4-address) (object2 ipv4-address))
-  (eql (ipv4-address-value object1)
-       (ipv4-address-value object2)))
-
-(defmethod address< ((object1 ipv4-address) (object2 ipv4-address))
-  (< (ipv4-address-value object1)
-     (ipv4-address-value object2)))
+(defmethod address-equal ((object1 ipv4-address) (object2 ipv4-address))
+  (eql (ipv4-address-value object1) (ipv4-address-value object2)))
 
 (defmethod address-hash ((object ipv4-address))
   (sxhash (ipv4-address-value object)))
+
+(defmethod address-order ((object1 ipv4-address) (object2 ipv4-address))
+  (- (ipv4-address-value object1) (ipv4-address-value object2)))
 
 (defmethod print-address ((object ipv4-address) stream &key)
   (let ((value (ipv4-address-value object)))

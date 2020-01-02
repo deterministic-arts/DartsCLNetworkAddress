@@ -82,3 +82,57 @@
 
 (defmethod host-name-string ((object string))
   (if (host-name-string-p object) (string-downcase object) (call-next-method)))
+
+
+
+(defstruct (host-name (:copier nil) (:predicate host-name-p)
+                      (:constructor make-host-name-1 (value)))
+  (value (error "missing host name")
+         :type (and simple-base-string host-name-string)
+         :read-only t))
+
+(defmethod host-name-string ((object host-name))
+  (host-name-value object))
+
+(defmethod address-equal ((o1 host-name) (o2 host-name))
+  (string= (host-name-value o1) (host-name-value o2)))
+
+(defmethod address-hash ((ob host-name))
+  (sxhash ob))
+
+(defmethod address-order ((o1 host-name) (o2 host-name))
+  (let ((v1 (host-name-value o1))
+        (v2 (host-name-value o2)))
+    (cond
+      ((string< v1 v2) -1)
+      ((string< v2 v1) 1)
+      (t 0))))
+
+(defmethod print-address ((object host-name) stream &key)
+  (write-string (host-name-value object) stream))
+
+(defmethod print-object ((object host-name) stream)
+  (if (not *print-escape*)
+      (write-string (host-name-value object) stream)
+      (print-unreadable-object (object stream :type t :identity nil)
+        (write-string (host-name-value object) stream)))
+  object)
+
+(defgeneric host-name (object)
+  (:method ((object host-name)) object)
+  (:method ((object t))
+    (error 'simple-type-error
+           :datum object :expected-type 'host-name
+           :format-control "~S is not a ~S"
+           :format-arguments (list object 'host-name))))
+
+(defmethod host-name ((object string))
+  (if (host-name-string-p object)
+      (make-host-name-1 (coerce (string-downcase object) 'simple-base-string))
+      (call-next-method)))
+
+(defmethod host-name ((object symbol))
+  (host-name (symbol-name object)))
+
+(defmethod host-name ((object character))
+  (host-name (string object)))
