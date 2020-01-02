@@ -24,6 +24,7 @@
 (in-package #:darts.lib.network-address)
 
 (defgeneric address-bytes (object)
+  (:method ((object t)) (declare (ignore object)) nil)
   (:documentation "Answers a byte array (i.e., array of (UNSIGNED-BYTE 8)
     elements) that represent the address OBJECT. The array is assumed to
     be suitable for being passed down to socket-open functions, etc."))

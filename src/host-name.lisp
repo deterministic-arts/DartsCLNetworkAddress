@@ -24,13 +24,6 @@
 (in-package #:darts.lib.network-address)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-
-  ;; Basically, this function tests whether the input string matches the
-  ;; regular expression
-  ;;
-  ;;    [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.?
-  ;;
-  
   (defun host-name-string-p (value)
     (declare (optimize speed))
     (and (stringp value)
