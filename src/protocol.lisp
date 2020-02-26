@@ -38,6 +38,7 @@
     by ADDRESS-HASH."))
 
 (defgeneric address-equal (object1 object2)
+  (:method (o1 o2) (declare (ignore o1 o2)) nil)
   (:documentation "Tests, whether the given addresses are equal.
     A valid implementation of this method provides an equivalence
     relation over a certain subset of addresses, i.e., it satisfies 
