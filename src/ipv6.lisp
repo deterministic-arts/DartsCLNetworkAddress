@@ -40,7 +40,7 @@
 (defmethod address-hash ((object ipv6-address))
   (sxhash (logxor (ipv6-address-word1 object) (ipv6-address-word2 object))))
 
-(defmethod address-compare ((object1 ipv6-address) (object2 ipv6-address))
+(defmethod address-order ((object1 ipv6-address) (object2 ipv6-address))
   (let ((h1 (ipv6-address-word1 object1))
         (h2 (ipv6-address-word1 object2)))
     (cond
