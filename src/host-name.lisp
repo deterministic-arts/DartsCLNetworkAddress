@@ -119,10 +119,18 @@
            :format-control "~S is not a ~S"
            :format-arguments (list object 'host-name))))
 
+(defun parse-host-name (string &key (start 0) end)
+  (let ((substr (subseq (string string) start end)))
+    (and (host-name-string-p substr)
+         (let ((lower (string-downcase substr)))
+           (if (typep lower 'simple-base-string)
+               (make-host-name-1 lower)
+               (let ((copy (make-string (length lower) :element-type 'base-char)))
+                 (replace copy lower)
+                 (make-host-name-1 copy)))))))
+
 (defmethod host-name ((object string))
-  (if (host-name-string-p object)
-      (make-host-name-1 (coerce (string-downcase object) 'simple-base-string))
-      (call-next-method)))
+  (or (parse-host-name object) (call-next-method)))
 
 (defmethod host-name ((object symbol))
   (host-name (symbol-name object)))
