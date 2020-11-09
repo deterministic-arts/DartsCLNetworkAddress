@@ -115,7 +115,27 @@ their canonical external format, and parse address values.
    
  - *Generic Function* `host-name` _value_ &rarr; _name_
  
+   Ensures, that _value_ is an instance of type `host-name` coercing it
+   when necessary (and possible.) If _value_ is neither a host name value
+   nor can it be coerced, this function signals a `type-error` condition.
+   
+   This function always returns an instance of type `host-name` or fails
+   with an appropriate error condition. It never returns more than a single
+   value. Applications may add their own methods to this function provided
+   that they obey these restrictions.
+   
+   - *Method* `host-name` (_value_ `host-name`) &rarr; _address_
+   
+     Answers _value_ unchanged.
+   
+   - *Method* `host-name` (_value_ `string`) &rarr; _address_
+   
+     Answers the result of parsing _value_ via `parse-host-name`. If the
+     value cannot be parsed, signals a condition.
+ 
  - *Function* `host-name-p` _value_ &rarr; _boolean_
+ 
+   Answers true, if _value_ is an instance of class `host-name`.
    
 ## Auxiliary Types
 
@@ -233,12 +253,33 @@ but that's optional. All pre-defined address types support ordering.
    Prints a representation of _value_ into _stream_. For addresses which can
    be fully represented as strings, there is the expectation, that unless 
    additional options are supplied via keyword arguments, the printed result
-   can later be parsed back into an object equivalent to _value_.
+   can later be parsed back into an object equivalent to _value_ using the
+   appropriate `parse-xxx` function.
    
  - *Function* `parse-ipv4-address` _string_ `&key` _start_ _end_ _junk-allowed_ &rarr; _address_
  
+   Tries to parse the part of _string_ designated by the _start_ and _end_ 
+   bounding indices as n IPv4 address in the "usual" dotted notation. If
+   parsing succeeds, answers an `ipv4-address` object. Otherwise, the behaviour
+   depends on _junk-allowed_: if true, the function answers `nil`, if false,
+   it signals an error condition of type `address-parse-error`.
+   
  - *Function* `parse-ipv6-address` _string_ `&key` _start_ _end_ _junk-allowed_ &rarr; _address_
- 
+
+   Tries to parse the part of _string_ designated by the _start_ and _end_ 
+   bounding indices as n IPv6 address in the usual notation. If parsing succeeds, 
+   answers an `ipv4-address` object. Otherwise, the behaviour depends on _junk-allowed_: 
+   if true, the function answers `nil`, if false, it signals an error condition of 
+   type `address-parse-error`.
+
+ - *Function* `parse-host-name` _string_ `&key` _start_ _end_ _junk-allowed_ &rarr; _address_
+
+   Tries to parse the part of _string_ designated by the _start_ and _end_ 
+       bounding indices as a host name in the usual notation. If parsing succeeds, 
+   answers an `host-name` object. Otherwise, the behaviour depends on _junk-allowed_: 
+   if true, the function answers `nil`, if false, it signals an error condition of 
+   type `address-parse-error`.
+  
  - *Function* `address-string` _address_ `&rest` _options_ &rarr; _string_
  
    Answers a string representation of _address_. Simply invokes `print-address` 
