@@ -29,7 +29,7 @@
     elements) that represent the address OBJECT. The array is assumed to
     be suitable for being passed down to socket-open functions, etc."))
 
-(declaim (inline address< address<= address/= address<= address>= address>))
+(declaim (inline address= address< address<= address/= address<= address>= address>))
 
 (defgeneric address-hash (object)
   (:documentation "Answers a fixnum, which represents a hash code
@@ -38,7 +38,7 @@
     by ADDRESS-HASH."))
 
 (defgeneric address-equal (object1 object2)
-  (:method (o1 o2) (declare (ignore o1 o2)) nil)
+  (:method (o1 o2) (eql o1 o2))
   (:documentation "Tests, whether the given addresses are equal.
     A valid implementation of this method provides an equivalence
     relation over a certain subset of addresses, i.e., it satisfies 
@@ -85,6 +85,9 @@
 
 (defun address>= (object1 object2)
   (not (minusp (address-order object1 object2))))
+
+#+SBCL
+(sb-ext:define-hash-table-test address-equal address-hash)
 
 
 
