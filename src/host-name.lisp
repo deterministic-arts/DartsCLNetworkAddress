@@ -126,12 +126,11 @@
             nil
             (error 'address-parse-error :input `(string :start ,start ,@(when end `(:end ,end)))
                                         :expected-type 'host-name))
-        (let ((lower (string-downcase substr)))
-          (if (typep lower 'simple-base-string)
-              (make-host-name-1 lower)
-              (let ((copy (make-string (length lower) :element-type 'base-char)))
-                (replace copy lower)
-                (make-host-name-1 copy)))))))
+        (let ((copy (make-string (length substr) :element-type 'base-char)))
+          (declare (type simple-base-string copy))
+          (replace copy substr)
+          (nstring-downcase copy)
+          (make-host-name-1 copy)))))
 
 (defmethod host-name ((object string))
   (or (parse-host-name object) (call-next-method)))
