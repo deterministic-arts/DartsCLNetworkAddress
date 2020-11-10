@@ -26,6 +26,7 @@
      (:file "ipv4" :depends-on ("protocol" "errors" "package"))
      (:file "ipv6" :depends-on ("protocol" "errors" "package"))
      (:file "host-name" :depends-on ("protocol" "errors" "package"))
-     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6" "host-name"))))))
+     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6" "host-name"))
+     (:file "uris" :depends-on ("package"))))))
 
 ;;; EOF
