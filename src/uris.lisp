@@ -64,6 +64,78 @@
 (defparameter +regname-chars+ (make-ascii-charset `(:union ,+unreserved-chars+ ,+sub-delim-chars+)))
 (defparameter +hex-chars+ (make-ascii-charset :hex-digit))
 
+(defun decode-unreserved-characters (string)
+  (let* ((length (length string))
+         (buffer (make-array length :element-type 'character :fill-pointer 0))
+         found-any)
+    (labels
+        ((to-simple-string (string)
+           (if (typep string 'simple-string) string
+               (let ((copy (make-string (length string))))
+                 (replace copy string)
+                 copy)))
+         (unescape (position)
+           (let* ((digit1 (digit-char-p (char string position) 16))
+                  (digit2 (digit-char-p (char string (1+ position)) 16))
+                  (code (dpb digit1 (byte 4 4) digit2)))
+             (if (and (< code 128) (not (zerop (sbit +unreserved-chars+ code))))
+                 (progn
+                   (vector-push-extend (code-char code) buffer)
+                   (setf found-any t))
+                 (progn
+                   (vector-push-extend #\% buffer)
+                   (vector-push-extend (char-upcase (char string position)) buffer)
+                   (vector-push-extend (char-upcase (char string (1+ position))) buffer)))
+             (scan (+ position 2))))
+         (scan (position)
+           (if (>= position length)
+               (if found-any
+                   (to-simple-string buffer)
+                   (to-simple-string string))
+               (let ((char (char string position)))
+                 (if (eql char #\%)
+                     (unescape (1+ position))
+                     (progn
+                       (vector-push-extend char buffer)
+                       (scan (1+ position))))))))
+      (scan 0))))
+
+(defun decode-host-characters (string)
+  (let* ((length (length string))
+         (buffer (make-array length :element-type 'character :fill-pointer 0))
+         found-any)
+    (labels
+        ((to-simple-string (string)
+           (if (typep string 'simple-string) string
+               (let ((copy (make-string (length string))))
+                 (replace copy string)
+                 copy)))
+         (unescape (position)
+           (let* ((digit1 (digit-char-p (char string position) 16))
+                  (digit2 (digit-char-p (char string (1+ position)) 16))
+                  (code (dpb digit1 (byte 4 4) digit2)))
+             (if (and (< code 128) (not (zerop (sbit +unreserved-chars+ code))))
+                 (progn
+                   (vector-push-extend (char-downcase (code-char code)) buffer)
+                   (setf found-any t))
+                 (progn
+                   (vector-push-extend #\% buffer)
+                   (vector-push-extend (char-upcase (char string position)) buffer)
+                   (vector-push-extend (char-upcase (char string (1+ position))) buffer)))
+             (scan (+ position 2))))
+         (scan (position)
+           (if (>= position length)
+               (if found-any
+                   (to-simple-string buffer)
+                   (to-simple-string string))
+               (let ((char (char string position)))
+                 (if (eql char #\%)
+                     (unescape (1+ position))
+                     (progn
+                       (vector-push-extend (char-downcase char) buffer)
+                       (scan (1+ position))))))))
+      (scan 0))))
+
 ;;; Splits an URI into its components, namely scheme, user-info, host, port, path,
 ;;; query, and fragment. Except for the path, any of these components may be missing
 ;;; in some form or another in a valid URI. If the URI can successfully be parsed,
@@ -98,37 +170,37 @@
                             :format-control control
                             :format-arguments arguments)))))
          (yield (scheme user host port path query fragment)
-           (cons path
+           (cons (decode-unreserved-characters path)
                  (nconc (and scheme (list :scheme scheme))
-                        (and user (list :user user))
+                        (and user (list :user (decode-unreserved-characters user)))
                         (and host (list :host host))
                         (and port (list :port port))
-                        (and query (list :query query))
-                        (and fragment (list :fragment fragment)))))
+                        (and query (list :query (decode-unreserved-characters query)))
+                        (and fragment (list :fragment (decode-unreserved-characters fragment))))))
          (split-authority (authority)
            (if (not (eql (char authority 0) #\[))
                (let* ((colon (position #\: authority :from-end t))
                       (host (if colon (subseq authority 0 colon) authority)))
                  (cond
                    ((not (component-match host +regname-chars+)) (fail "invalid characters in host component ~S" host))
-                   ((or (not colon) (eql (1+ colon) (length authority))) (values host nil))
+                   ((or (not colon) (eql (1+ colon) (length authority))) (values (decode-host-characters host) nil))
                    (t (let ((port (parse-integer authority :start (1+ colon) :junk-allowed t :radix 10)))
                         (if (and port (<= 0 port 65535))
-                            (values host port)
+                            (values (decode-host-characters host) port)
                             (fail "invalid TCP port number in authority component ~S" authority))))))
                (let ((close (position #\] authority :from-end t)))
                  (if (not close)
                      (fail "unterminated domain literal in authority component ~S" authority)
                      (let ((colon (position #\: authority :from-end t :start (1+ close))))
                        (cond
-                         ((not (or (eql close (length authority)) (eql colon (1+ close))))
+                         ((not (or (eql close (1- (length authority))) (eql colon (1+ close))))
                           (fail "junk after domain literal in authority component ~S" authority))
                          ((or (not colon) (eql (1+ colon) (length authority)))
-                          (values (subseq authority 0 (1+ close)) nil))
+                          (values (string-downcase (subseq authority 0 (1+ close))) nil))
                          (t
                           (let ((port (parse-integer authority :start (1+ colon) :radix 10 :junk-allowed t)))
                             (if (and port (<= 0 port 65535))
-                                (values (subseq authority 0 (1+ close)) port)
+                                (values (string-downcase (subseq authority 0 (1+ close))) port)
                                 (fail "invalid TCP port number in authority component ~S"
                                       authority))))))))))
          (end-of-authority-p (ch) (or (eql ch #\/) (eql ch #\?) (eql ch #\#)))
