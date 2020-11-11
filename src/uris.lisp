@@ -177,6 +177,13 @@
                         (and port (list :port port))
                         (and query (list :query (decode-unreserved-characters query)))
                         (and fragment (list :fragment (decode-unreserved-characters fragment))))))
+         (normalize-ip6 (string start end)
+           (let ((ip6 (if (and (> (- end start) 3) (string-equal "v1." string :start2 start :end2 (+ start 3)))
+                          (parse-ipv6-address string :start (+ start 3) :end end :junk-allowed t)
+                          (parse-ipv6-address string :start start :end end :junk-allowed t))))
+             (if ip6
+                 (address-string ip6 :prefix "[" :suffix "]")
+                 (fail "malformed IPv6 address in domain literal: ~S" (subseq string start end)))))
          (split-authority (authority)
            (if (not (eql (char authority 0) #\[))
                (let* ((colon (position #\: authority :from-end t))
@@ -196,11 +203,11 @@
                          ((not (or (eql close (1- (length authority))) (eql colon (1+ close))))
                           (fail "junk after domain literal in authority component ~S" authority))
                          ((or (not colon) (eql (1+ colon) (length authority)))
-                          (values (string-downcase (subseq authority 0 (1+ close))) nil))
+                          (values (normalize-ip6 authority 1 close) nil))
                          (t
                           (let ((port (parse-integer authority :start (1+ colon) :radix 10 :junk-allowed t)))
                             (if (and port (<= 0 port 65535))
-                                (values (string-downcase (subseq authority 0 (1+ close))) port)
+                                (values (normalize-ip6 authority 1 close) port)
                                 (fail "invalid TCP port number in authority component ~S"
                                       authority))))))))))
          (end-of-authority-p (ch) (or (eql ch #\/) (eql ch #\?) (eql ch #\#)))
