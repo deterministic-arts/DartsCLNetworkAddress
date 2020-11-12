@@ -465,7 +465,23 @@
 (defun escape-uri-path (path &key (encoding :utf-8))
   (etypecase path
     (string (escape-uri-component path +path-chars+ encoding))
-    (null "")))
+    (null "")
+    ((cons (member :absolute :relative) list)
+     (with-output-to-string (stream)
+       (let* ((absolute (eq (car path) :absolute))
+              (trailer nil)
+              (empty t))
+       (loop
+         for segment in (cdr path)
+         do (cond
+              ((eq segment :directory) (setf trailer t))
+              ((zerop (length segment)))
+              (t (write-string (if (and empty (not absolute)) "./" "/") stream)
+                 (write-string (escape-uri-component segment +pchar-chars+ encoding) stream)
+                 (setf empty nil))))
+       (when trailer
+         (write-string (if (and empty (not absolute)) "./" "/")
+                       stream)))))))              
 
 (defun escape-uri-query (string &key (encoding :utf-8))
   (escape-uri-component string +query-chars+ encoding))
