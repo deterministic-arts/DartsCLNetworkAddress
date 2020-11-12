@@ -16,7 +16,7 @@
   :licence "MIT"
   :description "Representations for network addresses and hosts"
   :long-description ""
-  :depends-on (#:split-sequence)
+  :depends-on (#:split-sequence #:babel)
   :components
   ((:module :src
     :components

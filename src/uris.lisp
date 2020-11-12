@@ -150,10 +150,6 @@
 ;;; With the exception of the <host> component, all components are validated in a
 ;;; very limited way (making sure, that they contain only allowed characters.) The
 ;;; host component is only cursory looked at by this function.
-;;;
-;;; This function never decodes %-escaped parts though it makes sure, that the
-;;; escape sequences are well-formed, i.e., that the % is followed by two hexadecimal
-;;; digits.
 
 (defun split-uri (string &key (start 0) end junk-allowed)
   (let* ((string (string string))
@@ -280,7 +276,311 @@
                      (unless (component-match user +userinfo-chars+) (fail "invalid characters in user-info component ~S" user))
                      (multiple-value-bind (host port) (split-authority server)
                        (yield scheme user host port path query fragment)))))))))))
+
 
+(defstruct (uri (:copier nil) (:conc-name uri-) (:predicate urip)
+                (:constructor make-uri-1))
+  (%string nil :type (or null string))
+  (scheme nil :type (or null string) :read-only t)
+  (user nil :type (or null string) :read-only t)
+  (host nil :type (or null string) :read-only t)
+  (port nil :type (or null (integer 0 65535)) :read-only t)
+  (path "" :type string :read-only t)
+  (query nil :type (or null string) :read-only t)
+  (fragment nil :type (or null string) :read-only t))
+
+(defmethod make-load-form ((object uri) &optional environment)
+  (declare (ignore environment))
+  (labels
+      ((maybe (key value) (and value (list key value))))
+    `(make-uri-1 :path ,(uri-path object)
+                 ,@(maybe :scheme (uri-scheme object))
+                 ,@(maybe :user (uri-user object))
+                 ,@(maybe :host (uri-host object))
+                 ,@(maybe :port (uri-port object))
+                 ,@(maybe :query (uri-query object))
+                 ,@(maybe :fragment (uri-fragment object)))))  
+
+(defun uri-authority (object)
+  (let ((user (uri-user object)) (host (uri-host object))
+        (port (uri-port object)))
+    (and (or user host port)
+         (format nil "~@[~A@~]~@[~A~]~@[:~D~]"
+                 user host port))))
+
+(defun uri-string (object)
+  (or (uri-%string object)
+      (setf (uri-%string object)
+            (format nil "~@[~A:~]~@[//~A~]~A~@[?~A~]~@[~A~]"
+                    (uri-scheme object) (uri-authority object)
+                    (uri-path object) (uri-query object)
+                    (uri-fragment object)))))
+
+(defun uri-equal (u1 u2)
+  (string= (uri-string u1) (uri-string u2)))
+
+(defun uri-hash (object)
+  (sxhash (uri-string object)))
+
+#+SBCL
+(sb-ext:define-hash-table-test uri-equal uri-hash)
+
+(defun parse-uri (string &key (start 0) end junk-allowed)
+  (let ((data (split-uri string :start start :end end :junk-allowed junk-allowed)))
+    (apply #'make-uri-1 :path (car data) (cdr data))))
+
+(defgeneric uri (object)
+  (:method ((object t)) (error 'type-error :datum object :expected-type 'uri))
+  (:method ((object uri)) object)
+  (:method ((object string)) (or (parse-uri object :junk-allowed t) (call-next-method))))
+
+(defun remove-dot-segments (path)
+  (labels
+      ((copy-segment (list drops result)
+         (cond
+           ((null list) result)
+           ((string= "." (car list)) (copy-segment (cdr list) drops result))
+           ((string= ".." (car list)) (copy-segment (cdr list) (1+ drops) result))
+           ((zerop drops) (copy-segment (cdr list) 0 (cons (car list) result)))
+           (t (copy-segment (cdr list) (1- drops) result)))))
+    (let* ((segments (split-sequence #\/ path))
+           (absolute (and segments (zerop (length (car segments)))))
+           (new-path (copy-segment (reverse (if absolute (cdr segments) segments)) 0 nil)))
+      (with-output-to-string (stream)
+        (loop
+          for segment in new-path
+          for first = (not absolute) then nil
+          do (unless first (write-char #\/ stream))
+             (write-string segment stream))))))
+
+(defun merge-uri-paths (reference base)
+  (let ((r-path (uri-path reference)))
+    (if (and (plusp (length r-path)) (eql (char r-path 0) #\/))
+        r-path
+        (let ((b-path (uri-path base)))
+          (if (zerop (length b-path))
+              (if (or (uri-user base) (uri-host base) (uri-port base))
+                  (remove-dot-segments (concatenate 'string "/" r-path))
+                  (remove-dot-segments r-path))
+              (let* ((slash (position #\/ b-path :from-end t))
+                     (prefix (if slash (subseq b-path 0 (1+ slash)) "")))
+                (remove-dot-segments (concatenate 'string prefix r-path))))))))
+
+(defun resolve-uri (reference base &key (start 0) end junk-allowed (strict t))
+  (let ((reference (parse-uri reference :start start :end end :junk-allowed junk-allowed)))
+    (and reference
+         (let ((base (uri base)))
+                      (let ((r-scheme (uri-scheme reference)) (r-user (uri-user reference))
+                 (r-host (uri-host reference)) (r-port (uri-port reference))
+                 (r-path (uri-path reference)) (r-query (uri-query reference))
+                 (r-fragment (uri-fragment reference))
+                 (b-scheme (uri-scheme base)) (b-user (uri-user base))
+                 (b-host (uri-host base)) (b-port (uri-port base))
+                 (b-path (uri-path base)) (b-query (uri-query base)))
+             (cond
+               ((and r-scheme (or strict (not (equalp r-scheme b-scheme))))
+                (make-uri-1 :scheme r-scheme :user r-user :host r-host
+                            :port r-port :path (remove-dot-segments r-path)
+                            :query r-query :fragment r-fragment))
+               ((or r-user r-host r-port)
+                (make-uri-1 :scheme b-scheme :user r-user :host r-host
+                            :port r-port :path (remove-dot-segments r-path)
+                            :query r-query :fragment r-fragment))
+               ((zerop (length r-path))
+                (make-uri-1 :scheme b-scheme :user b-user :host b-host
+                            :port b-port :path b-path
+                            :query (or r-query b-query) :fragment r-fragment))
+               (t
+                (make-uri-1 :scheme b-scheme :user b-user :host b-host
+                            :port b-port :path (merge-uri-paths reference base)
+                            :query (or r-query b-query) :fragment r-fragment))))))))
+
+(defmethod print-object ((object uri) stream)
+  (if (not *print-escape*)
+      (write-string (uri-string object) stream)
+      (print-unreadable-object (object stream :type t :identity t)
+        (write-string (uri-string object) stream)))
+  object)
+
+(defun uri-scheme-string-p (object)
+  (and (stringp object)
+       (let ((length (length object)))
+         (and (plusp length)
+              (char-match-p (char object 0) +scheme-start-chars+)
+              (loop
+                for k upfrom 1 below length
+                always (char-match-p (char object k) +scheme-chars+))))))
+
+(defun canonicalize-uri-component (string charset caser name)
+  (let* ((digits "0123456789ABCDEF")
+         (string (string string))
+         (buffer (make-array (length string) :element-type 'character :fill-pointer 0)))
+    (labels
+        ((add (char) (vector-push-extend (if caser (funcall caser char) char) buffer))
+         (scan (position)
+           (if (>= position (length string))
+               (let ((copy (make-string (length buffer))))
+                 (replace copy buffer)
+                 copy)
+               (let ((char (char string position)))
+                 (cond
+                   ((char-match-p char charset) (add char) (scan (1+ position)))
+                   ((eql char #\%) (escaped (1+ position)))
+                   (t (error "malformed value ~S for URI component ~S" string name))))))
+         (escaped (position)
+           (if (> (+ position 2) (length string))
+               (error "malformed value ~S for URI component ~S" string name)
+               (let ((digit1 (digit-char-p (char string position) 16))
+                     (digit2 (digit-char-p (char string (1+ position)) 16)))
+                 (if (not (and digit1 digit2))
+                     (error "malformed value ~S for URI component ~S" string name)
+                     (let ((code (dpb digit1 (byte 4 4) digit2)))
+                       (if (and (< code 128) (not (zerop (sbit +unreserved-chars+ code))))
+                           (add (code-char code))
+                           (progn
+                             (add #\%) (add (char digits digit1))
+                             (add (char digits digit2))))
+                       (scan (+ position 2))))))))
+      (scan 0)
+      (let ((copy (make-string (length buffer))))
+        (replace copy buffer)
+        copy))))
+
+(defun escape-uri-component (string charset encoding)
+  (let* ((digits "0123456789ABCDEF")
+         (octets (babel:string-to-octets string :encoding encoding :use-bom nil :errorp t))
+         (buffer (make-array (* 3 (length octets)) :element-type 'character :fill-pointer 0)))
+    (loop
+      for octet across octets
+      do (if (and (< octet 128) (not (zerop (sbit charset octet))))
+             (vector-push-extend (code-char octet) buffer)
+             (progn
+               (vector-push-extend #\% buffer)
+               (vector-push-extend (char digits (ldb (byte 4 4) octet)) buffer)
+               (vector-push-extend (char digits (ldb (byte 4 0) octet)) buffer))))
+    (let ((copy (make-string (length buffer))))
+      (replace copy buffer)
+      copy)))
+
+(defun escape-uri-path (path &key (encoding :utf-8))
+  (etypecase path
+    (string (escape-uri-component path +path-chars+ encoding))
+    (null "")))
+
+(defun escape-uri-query (string &key (encoding :utf-8))
+  (escape-uri-component string +query-chars+ encoding))
+
+(defun escape-uri-fragment (string &key (encoding :utf-8))
+  (escape-uri-component string +fragment-chars+ encoding))
+
+(defun escape-uri-user (string &key (encoding :utf-8))
+  (escape-uri-component string +userinfo-chars+ encoding))
+
+(defun escape-uri-host (host &key (encoding :utf-8))
+  (etypecase host
+    (ipv4-address (address-string host))
+    (ipv6-address (address-string host :prefix "[" :suffix "]"))
+    (host-name (address-string host))
+    (string (escape-uri-component (string-downcase host) +regname-chars+ encoding))))
+
+(defun canonicalize-uri-path (string)
+  (if (zerop (length string)) ""
+      (canonicalize-uri-component string +path-chars+ #'identity :path)))
+                     
+(defun canonicalize-uri-query (string)
+  (if (zerop (length string)) ""
+      (canonicalize-uri-component string +query-chars+ #'identity :query)))
+
+(defun canonicalize-uri-fragment (string)
+  (if (zerop (length string)) ""
+      (canonicalize-uri-component string +fragment-chars+ #'identity :fragment)))
+
+(defun canonicalize-uri-user (string)
+  (if (zerop (length string)) ""
+      (canonicalize-uri-component string +userinfo-chars+ #'identity :user)))
+
+(defun canonicalize-uri-host/regname (string)
+  (if (zerop (length string)) ""
+      (canonicalize-uri-component string +regname-chars+ #'char-downcase :host)))
+
+(defun canonicalize-uri-host (string)
+  (etypecase string
+    (ipv4-address (address-string string))
+    (ipv6-address (address-string string :prefix "[" :suffix "]"))
+    (host-name (address-string string))
+    (string
+     (if (zerop (length string)) ""
+         (if (not (eql (char string 0) #\[))
+             (canonicalize-uri-component string +regname-chars+ #'char-downcase :host)
+             (let ((length (length string)))
+               (if (not (eql (char string (1- length)) #\]))
+                   (error "malformed value ~S for URI component ~S" string :host)
+                   (let ((address (parse-ipv6-address string
+                                                      :junk-allowed t :end (1- length)
+                                                      :start (if (and (> length 4) (string-equal "V1." string :start2 1 :end2 4))
+                                                                 4 1))))
+                     (address-string address :prefix "[" :suffix "]")))))))))
+
+(defun make-uri (&key
+                   scheme authority user host port path query fragment
+                   raw-user raw-host raw-path raw-query raw-fragment
+                   (encoding :utf-8))
+  (let ((scheme* (and scheme
+                      (if (not (uri-scheme-string-p scheme))
+                          (error 'type-error :datum scheme :expected-type '(and string (satisfies uri-scheme-string-p)))
+                          (string-downcase scheme))))
+        (path* (cond
+                 ((and raw-path path) (error "cannot use ~S and ~S at the same time" :path :raw-path))
+                 (path (canonicalize-uri-path path))
+                 (raw-path (escape-uri-path raw-path :encoding encoding))
+                 (t "")))
+        (query* (cond
+                  ((and raw-query query) (error "cannot use ~S and ~S at the same time" :query :raw-query))
+                  (query (canonicalize-uri-query query))
+                  (raw-query (escape-uri-query raw-query :encoding encoding))
+                  (t nil)))
+        (fragment* (cond
+                     ((and raw-fragment fragment) (error "cannot use ~S and ~S at the same time" :fragment :raw-fragment))
+                     (fragment (canonicalize-uri-fragment fragment))
+                     (raw-fragment (escape-uri-fragment raw-fragment :encoding encoding))
+                     (t nil)))
+        user* host* port*)
+    (when authority
+      (when (or user host port raw-user raw-host)
+        (error "cannot use ~S and one of ~S, ~S, ~S, ~S, ~S at the same time"
+               :authority :user :host :port :raw-user :raw-host))
+      (let ((delimiter (position #\@ authority)))
+        (when delimiter
+          (setf user (subseq authority 0 delimiter))
+          (setf authority (subseq authority (1+ delimiter))))
+        (let ((colon (position #\: authority :from-end t))
+              (close (position #\] authority :from-end t)))
+          (if (and colon (or (not close) (< close colon)))
+              (progn
+                (setf host (subseq authority 0 colon))
+                (setf authority (subseq authority (1+ colon))))
+              (progn
+                (setf host authority)
+                (setf authority nil)))
+          (when (and authority (plusp (length authority)))
+            (setf port (or (parse-integer authority :radix 10 :junk-allowed t)
+                           (error "malformed value ~S for ~S in ~S argument"
+                                  authority :port :authority)))))))
+    (setf user* (cond
+                  ((and raw-user user) (error "cannot use ~S and ~S at the same time" :user :raw-user))
+                  (user (canonicalize-uri-user user))
+                  (raw-user (escape-uri-user raw-user :encoding encoding))
+                  (t nil)))
+    (setf host* (cond
+                  ((and raw-host host) (error "cannot use ~S and ~S at the same time" :host :raw-host))
+                  (host (canonicalize-uri-host host))
+                  (raw-host (escape-uri-host raw-host :encoding encoding))
+                  (t nil)))
+    (setf port* (and port
+                     (if (typep port '(integer 0 65535)) port
+                         (error 'type-error :datum port :expected-type '(integer 0 65535)))))
+    (make-uri-1 :scheme scheme* :user user* :host host* :port port*
+                :path path* :query query* :fragment fragment*)))
 
 #||
 

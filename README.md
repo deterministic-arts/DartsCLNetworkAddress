@@ -297,3 +297,74 @@ but that's optional. All pre-defined address types support ordering.
    The result should be a suitable first argument to `usocket`'s `socket-connect`
    function. A default method is provided, which returns `nil` for any input
    value.
+
+## Uniform Resource Identifiers
+
+This library provides a simple `uri` type to represent URIs that conform to [RFC 3986](https://tools.ietf.org/html/rfc3986).
+It parses those URIs, and performs simple normalizations (of the kind that do not
+alter an URIs meaning.)
+
+The following types and functions deal with URIs:
+
+ - *Type* `uri`
+ 
+   An object that holds the components of an URI after parsing. The contents is
+   partially normalized. The class precedence list is `uri`, `structure-object`, `t`.
+ 
+ - *Function* `urip` _object_ &rarr; _boolean_
+ 
+   Answers true, if the argument _object_ is an instance of type `uri` and false
+   otherwise.
+ 
+ - *Generic Function* `uri` _object_ &rarr; _uri_
+ 
+   Ensures, that _object_ is an URI. If it is not, tries to cast it into one (e.g.,
+   by parsing it, if it is a string.) This function always either returns an `uri`
+   instance or fails signalling an appropriate condition.
+ 
+ - *Function* `parse-uri` _string_ `&key` _start_ _end_ _junk-allowed_ &rarr; _uri_
+
+   Parses the given string as an URI, returning an `uri` instance. If _string_ does
+   not contain a well-formed URI, fails with a condition of type `uri-parse-error`
+   if _junk-allowed_ is false (the default); if _junk-allowed_ is true, returns 
+   `nil` in this case instead.
+
+ - *Function* `resolve-uri` _reference_ _base_ `&key` _start_ _end_ _junk-allowed_ _strict_ &rarr; _uri_
+ 
+   Resolves the relative URI _reference_ against the base URI _base_ using the
+   algorithm provided in RFC 3986. The value of _reference_ may either be an `uri`
+   instance or a string. The value of _base_ may also be an `uri` or a `string`.
+ 
+URIs can be compared (for equality), and they can produce a hash code for use in
+hash tables of Lisp implementations, that support custom predicates and hash functions.
+Two `uri` instances are considered equal, if their full string representations are
+equal.
+
+ - *Function* `uri-equal` _object1_ _object2_ &rarr; _boolean_
+ - *Function* `uri-hash` _object_ &rarr; _fixnum_
+
+The following accessor functions for URI components exists. For optional components,
+they return `nil` if the field was omitted in the original URI string; the parser
+generally preserves components with empty values where the URI grammar allows them,
+i.e., when parsing `file:///usr/bin/ls`, the result will have a non-`nil` (abeit empty)
+host component, whereas `file:/usr/bin/ls` will have no authority component at all.
+
+For all components, for which the grammar allows `%` escaped characters, the characters
+from the "unreserved" set are decoded, but all other `%` escaped data is left as-is.
+
+ - *Function* `uri-string` _object_ &rarr; _string_
+ - *Function* `uri-scheme` _object_ &rarr; _string-or-nil_
+ - *Function* `uri-user` _object_ &rarr; _string-or-nil_
+ - *Function* `uri-host` _object_ &rarr; _string-or-nil_
+ - *Function* `uri-port` _object_ &rarr; _integer-or-nil_
+ - *Function* `uri-path` _object_ &rarr; _string_
+ - *Function* `uri-query` _object_ &rarr; _string-or-nil_
+ - *Function* `uri-fragment` _object_ &rarr; _string-or-nil_
+ 
+### Comparison To `PURI`
+
+This library's URI representation is less rich than the one provided by `puri`. In 
+particular, this library does not provide a special sub-type for URN, has no support
+for interning URIs, etc. The primary driver for writing this code was, that I needed 
+support for domain literals and IPv6 addresses, and `puri` does not support those as 
+of yet.
