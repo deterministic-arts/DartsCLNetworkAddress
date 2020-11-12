@@ -17,16 +17,17 @@
   :description "Representations for network addresses and hosts"
   :long-description ""
   :depends-on (#:split-sequence #:babel)
+  :serial t
   :components
   ((:module :src
     :components
     ((:file "package")
-     (:file "protocol" :depends-on ("package"))
-     (:file "errors" :depends-on ("package"))
-     (:file "ipv4" :depends-on ("protocol" "errors" "package"))
-     (:file "ipv6" :depends-on ("protocol" "errors" "package"))
-     (:file "host-name" :depends-on ("protocol" "errors" "package"))
-     (:file "misc" :depends-on ("protocol" "package" "ipv4" "ipv6" "host-name"))
-     (:file "uris" :depends-on ("package"))))))
+     (:file "protocol")
+     (:file "errors")
+     (:file "ipv4")
+     (:file "ipv6")
+     (:file "host-name")
+     (:file "misc")
+     (:file "uris")))))
 
 ;;; EOF
