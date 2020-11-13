@@ -537,6 +537,40 @@
                                                                  4 1))))
                      (address-string address :prefix "[" :suffix "]")))))))))
 
+;(defconstant inherit 'inherit)
+
+(defun copy-uri (uri
+                 &key (scheme t) (user t) (host t) (port t) (path t) (query t) (fragment t)
+                   raw-user raw-host raw-path raw-query raw-fragment
+                   (encoding :utf-8))
+  (macrolet ((escape ((cooked-key cooked) (raw-key raw) reader escaper normalizer)
+               `(if ,raw
+                    (cond
+                      ((not (eql ,cooked 't)) (error "cannot use ~S and ~S at the same time" ',cooked-key ',raw-key))
+                      (t (,escaper ,raw :encoding encoding)))
+                    (cond
+                      ((eql ,cooked 't) (,reader uri))
+                      ((eql ,cooked 'nil) nil)
+                      (t (,normalizer ,cooked))))))
+    (let* ((uri (uri uri))
+           (scheme* (cond
+                      ((eql scheme 't) (uri-scheme uri))
+                      ((eql scheme 'nil) nil)
+                      ((not (uri-scheme-string-p scheme)) (error 'type-error :datum scheme :expected-type '(and string (satisfies uri-scheme-string-p))))
+                      (t (string-downcase scheme))))
+           (port* (cond
+                    ((eql port 't) (uri-port uri))
+                    ((eql port 'nil) nil)
+                    ((not (typep port '(integer 0 65535))) (error 'type-error :datum port :expected-type '(integer 0 65535)))
+                    (t port)))
+           (user* (escape (:user user) (:raw-user raw-user) uri-user escape-uri-user canonicalize-uri-user))
+           (host* (escape (:host host) (:raw-host raw-host) uri-host escape-uri-host canonicalize-uri-host))
+           (path* (escape (:path path) (:raw-path raw-path) uri-path escape-uri-path canonicalize-uri-path))
+           (query* (escape (:query query) (:raw-query raw-query) uri-query escape-uri-query canonicalize-uri-query))
+           (fragment* (escape (:fragment fragment) (:raw-fragment raw-fragment) uri-fragment escape-uri-fragment canonicalize-uri-fragment)))
+      (make-uri-1 :scheme scheme* :user user* :host host* :port port*
+                  :path path* :query query* :fragment fragment*))))  
+
 (defun make-uri (&key
                    scheme authority user host port path query fragment
                    raw-user raw-host raw-path raw-query raw-fragment

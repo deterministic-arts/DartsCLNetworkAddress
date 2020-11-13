@@ -8,7 +8,7 @@
   (:use)
   (:export #:uri-parse-error #:uri-parse-error-input #:split-uri #:parse-uri #:resolve-uri
            #:uri-string #:uri-scheme #:uri-user #:uri-host #:uri-port #:uri-path #:uri-query
-           #:uri-fragment #:uri-equal #:uri-hash #:uri #:urip #:make-uri)
+           #:uri-fragment #:uri-equal #:uri-hash #:uri #:urip #:make-uri #:copy-uri)
   (:documentation ""))
 
 (defpackage #:darts.lib.network-address
