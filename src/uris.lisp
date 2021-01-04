@@ -311,7 +311,7 @@
 (defun uri-string (object)
   (or (uri-%string object)
       (setf (uri-%string object)
-            (format nil "~@[~A:~]~@[//~A~]~A~@[?~A~]~@[~A~]"
+            (format nil "~@[~(~A~):~]~@[//~A~]~A~@[?~A~]~@[~A~]"
                     (uri-scheme object) (uri-authority object)
                     (uri-path object) (uri-query object)
                     (uri-fragment object)))))
