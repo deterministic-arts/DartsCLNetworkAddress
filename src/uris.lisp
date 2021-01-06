@@ -40,6 +40,7 @@
            (cons
             (ecase (car object)
               ((:range) (range array (cadr object) (caddr object)))
+              ((:difference) (bit-andc2 (evaluate (second object) array) (evaluate (third object)) array))
               ((:union)
                (loop for s in (cdr object)
                      do (bit-ior array (evaluate s) array))))))
@@ -57,6 +58,7 @@
 (defparameter +pchar-chars+ (make-ascii-charset `(:union ,+unreserved-chars+ ,+sub-delim-chars+ ":@")))
 (defparameter +path-chars+ (make-ascii-charset `(:union ,+pchar-chars+ #\/)))
 (defparameter +query-chars+ (make-ascii-charset `(:union ,+pchar-chars+ "/?")))
+(defparameter +query-part-chars+ (make-ascii-charset `(:difference ,+query-chars+ "&=")))
 (defparameter +fragment-chars+ (make-ascii-charset `(:union ,+pchar-chars+ "/?")))
 (defparameter +scheme-start-chars+ (make-ascii-charset :alpha))
 (defparameter +scheme-chars+ (make-ascii-charset `(:union :alpha :digit ".-+")))
@@ -367,7 +369,9 @@
                 (remove-dot-segments (concatenate 'string prefix r-path))))))))
 
 (defun resolve-uri (reference base &key (start 0) end junk-allowed (strict t))
-  (let ((reference (parse-uri reference :start start :end end :junk-allowed junk-allowed)))
+  (let ((reference
+          (if (urip reference) reference
+              (parse-uri reference :start start :end end :junk-allowed junk-allowed))))
     (and reference
          (let ((base (uri base)))
                       (let ((r-scheme (uri-scheme reference)) (r-user (uri-user reference))
@@ -483,8 +487,31 @@
          (write-string (if (and empty (not absolute)) "./" "/")
                        stream)))))))              
 
-(defun escape-uri-query (string &key (encoding :utf-8))
-  (escape-uri-component string +query-chars+ encoding))
+(defun escape-uri-query (datum &key (encoding :utf-8))
+  (etypecase datum
+    (string (escape-uri-component datum +query-chars+ encoding))
+    (list (with-output-to-string (stream)
+            (flet ((part (object)
+                     (escape-uri-component (typecase object
+                                             (string object)
+                                             (symbol (string-downcase (symbol-name object)))
+                                             (character (string object))
+                                             (t (princ-to-string object)))
+                                           +query-part-chars+ encoding)))
+              (loop
+                with first = t
+                for parameter in datum
+                do (if (not (consp parameter))
+                       (let ((part (part parameter)))
+                         (when (plusp (length part))
+                           (if first (setf first nil) (write-char #\& stream))
+                           (write-string part stream)))
+                       (let ((key-part (part (car parameter)))
+                             (value-part (part (cdr parameter))))
+                         (if first (setf first nil) (write-char #\& stream))
+                         (write-string key-part stream)
+                         (write-char #\= stream)
+                         (write-string value-part stream)))))))))
 
 (defun escape-uri-fragment (string &key (encoding :utf-8))
   (escape-uri-component string +fragment-chars+ encoding))
