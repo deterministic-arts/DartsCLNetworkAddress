@@ -329,7 +329,7 @@
 
 (defun parse-uri (string &key (start 0) end junk-allowed)
   (let ((data (split-uri string :start start :end end :junk-allowed junk-allowed)))
-    (apply #'make-uri-1 :path (car data) (cdr data))))
+    (and data (apply #'make-uri-1 :path (car data) (cdr data)))))
 
 (defgeneric uri (object)
   (:method ((object t)) (error 'type-error :datum object :expected-type 'uri))
