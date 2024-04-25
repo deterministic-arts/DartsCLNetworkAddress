@@ -73,7 +73,11 @@
   (string= (host-name-value o1) (host-name-value o2)))
 
 (defmethod address-hash ((ob host-name))
-  (or (host-name-%hash ob) (setf (host-name-%hash ob) (sxhash (host-name-value ob)))))
+  (or (host-name-%hash ob)
+      (setf (host-name-%hash ob)
+            (logand most-positive-fixnum
+                    (+ #.(* 31 (sxhash 'host-name))
+                       (sxhash (host-name-value ob)))))))
 
 (defmethod address-order ((o1 host-name) (o2 host-name))
   (let ((v1 (host-name-value o1))
