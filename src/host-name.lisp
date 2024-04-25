@@ -63,9 +63,8 @@
 
 (defstruct (host-name (:copier nil) (:predicate host-name-p)
                       (:constructor make-host-name-1 (value)))
-  (value (error "missing host name")
-         :type (and simple-base-string host-name-string)
-         :read-only t))
+  (value (error "missing host name") :type (and simple-base-string host-name-string) :read-only t)
+  (%hash nil :type (or null fixnum)))
 
 (defmethod host-name-string ((object host-name))
   (host-name-value object))
@@ -74,7 +73,7 @@
   (string= (host-name-value o1) (host-name-value o2)))
 
 (defmethod address-hash ((ob host-name))
-  (sxhash ob))
+  (or (host-name-%hash ob) (setf (host-name-%hash ob) (sxhash (host-name-value ob)))))
 
 (defmethod address-order ((o1 host-name) (o2 host-name))
   (let ((v1 (host-name-value o1))
